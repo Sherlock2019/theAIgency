@@ -12,6 +12,9 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# LLM settings (same variables as the Myweb repo); see .env.example.
+if [ -f .env ]; then set -a; . ./.env; set +a; fi
+
 BASE_PORT="${PORT:-8503}"
 HOST="${HOST:-0.0.0.0}"
 PID_FILE=".run.pid"

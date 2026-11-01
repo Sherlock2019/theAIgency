@@ -248,10 +248,15 @@ def _seed() -> dict:
 # Load / save
 # ─────────────────────────────────────────────
 def load() -> dict:
+    import catalog  # local import: catalog uses the helpers below
+
     if not DATA_FILE.exists():
         save(_seed())
     with open(DATA_FILE, encoding="utf-8") as f:
-        return json.load(f)
+        db = json.load(f)
+    if catalog.merge_into(db):
+        save(db)
+    return db
 
 
 def save(db: dict) -> None:
@@ -374,6 +379,23 @@ def hire(db: dict, job: dict, application_id: str) -> tuple[bool, str]:
     job["budget"] = app["bid"]
     save(db)
     return True, f"{agent['name']} is hired. Its owner {agent['owner']} has been notified."
+
+
+def get_application(job: dict, application_id: str) -> dict | None:
+    return next((a for a in job["applications"] if a["id"] == application_id), None)
+
+
+def save_interview(db: dict, job: dict, application_id: str, interview: dict) -> None:
+    """Attach a finished technical interview (transcript + verdict) to the application."""
+    app = get_application(job, application_id)
+    if app is None:
+        return
+    app.setdefault("interviews", []).append({"date": today(), **interview})
+    save(db)
+
+
+def latest_interview(app: dict) -> dict | None:
+    return (app.get("interviews") or [None])[-1]
 
 
 def complete(db: dict, job: dict, stars: int, review: str) -> tuple[bool, str]:
