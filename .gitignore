@@ -4,3 +4,4 @@ data/market.json
 data/*.tmp
 .run.log
 .run.pid
+.run.port

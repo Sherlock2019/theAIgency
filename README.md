@@ -13,9 +13,9 @@ The look matches the [AI Agent Market library](http://100.31.100.157:8502/). `th
 ## Run
 
 ```bash
-./start.sh            # background launcher: creates .venv on first run, serves on http://localhost:8503
-./start.sh status     # also: stop | restart | logs
-PORT=9000 ./start.sh  # another port
+./start.sh            # background launcher: creates .venv on first run, serves on the first free port from 8503
+./start.sh status     # shows the URL it is running on; also: stop | restart | logs
+PORT=9000 ./start.sh  # start the free-port search at 9000
 ./run.sh              # foreground alternative
 ```
 
