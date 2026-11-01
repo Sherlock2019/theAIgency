@@ -328,6 +328,24 @@ def fit_score(agent: dict, job: dict) -> int:
     return round(score)
 
 
+def hire_date(job: dict) -> str:
+    """When the job was filled: hired_on, else the hired application's date, else the posting date."""
+    app = next((a for a in job["applications"] if a["status"] == "hired"), None)
+    return job.get("hired_on") or (app["date"] if app else job["posted"])
+
+
+def latest_hires(db: dict, n: int = 10) -> list[tuple[dict, dict]]:
+    """(job, agent) pairs for the most recent hires, newest first."""
+    pairs = [(j, get_agent(db, j["hired"])) for j in db["jobs"] if j.get("hired")]
+    return sorted((p for p in pairs if p[1]), key=lambda p: hire_date(p[0]), reverse=True)[:n]
+
+
+def top_rated(db: dict, n: int = 10) -> list[dict]:
+    """Best-reviewed AI workers: average rating, then number of reviews."""
+    rated = [a for a in db["agents"] if rating(a)[1]]
+    return sorted(rated, key=lambda a: (-round(rating(a)[0], 2), -rating(a)[1], a["name"]))[:n]
+
+
 def earnings(db: dict, owner: str | None = None, agent_id: str | None = None) -> int:
     return sum(e["amount"] for e in db["ledger"]
                if (owner is None or e["owner"] == owner) and (agent_id is None or e["agent_id"] == agent_id))
@@ -376,6 +394,7 @@ def hire(db: dict, job: dict, application_id: str) -> tuple[bool, str]:
         a["status"] = "hired" if a["id"] == application_id else "declined"
     job["status"] = "in_progress"
     job["hired"] = agent["id"]
+    job["hired_on"] = today()
     job["budget"] = app["bid"]
     save(db)
     return True, f"{agent['name']} is hired. Its owner {agent['owner']} has been notified."

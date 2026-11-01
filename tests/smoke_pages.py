@@ -13,7 +13,7 @@ routes = [{}, {"page": "worker", "id": "ag_credit"}, {"page": "worker", "id": "a
           {"page": "job", "id": "jb_loans"}, {"page": "job", "id": "jb_support"},
           {"page": "post"}, {"page": "register"}, {"page": "owner"}, {"page": "job", "id": "nope"},
           {"page": "interview", "job": "jb_loans", "app": "ap_1"}, {"page": "worker", "id": "ag_g17"},
-          {"page": "job", "id": "jb_g050"}]
+          {"page": "job", "id": "jb_g050"}, {"page": "workers"}]
 try:
     for qp in routes:
         at = AppTest.from_file(str(root / "app.py"), default_timeout=30)
@@ -22,6 +22,13 @@ try:
         at.run()
         print(qp or "home", "OK" if not at.exception else f"EXC {[x.value for x in at.exception]}",
               "| md blocks:", len(at.markdown), "buttons:", len(at.button))
+
+    # home sections: all postings, latest hires, top 10 reviews
+    at = AppTest.from_file(str(root / "app.py"), default_timeout=30); at.run()
+    md = " ".join(m.value for m in at.markdown)
+    print("home: all jobs listed:", md.count("class='aw-row aw-row-compact'"), "| hires:", md.count("class='mk-hire'"),
+          "| top reviews:", md.count("class='mk-review'"),
+          "| order ok:", -1 < md.find("id='open-jobs'") < md.find("id='latest-hires'") < md.find("id='top-workers'"))
 
     # search on home
     at = AppTest.from_file(str(root / "app.py"), default_timeout=30); at.run()

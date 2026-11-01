@@ -251,6 +251,20 @@ a.aw-title:hover {{ text-decoration:underline !important; }}
 .rs-top b {{ color:{pal['text']} !important; font-size:0.98rem; }}
 .rs-meta {{ font-size:0.8rem; color:{pal['muted']} !important; }}
 .aw-quote {{ background:{pal['bg']}; border:1px solid {pal['border']}; border-left:3px solid {accent}; border-radius:8px; padding:0.6rem 0.85rem; margin-top:0.45rem; font-size:0.88rem; }}
+/* Home: compact job list, latest hires, top reviews */
+.aw-jobs-scroll {{ max-height: 900px; overflow-y: auto; }}
+.aw-row-compact {{ padding:0.7rem 1rem; gap:0.8rem; }}
+.aw-row-compact .aw-desc-row {{ -webkit-line-clamp:1; }}
+.aw-row-compact .aw-row-side {{ gap:0.35rem; }}
+.mk-hires {{ display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }}
+.mk-hire {{ display:flex; gap:0.8rem; align-items:flex-start; background:{pal['card']}; border:1px solid {pal['border']}; border-left:3px solid {pal['red']}; border-radius:12px; padding:0.8rem 1rem; }}
+.mk-hire:nth-child(4n+2), .mk-hire:nth-child(4n+3) {{ border-left-color:{accent}; }}
+.mk-hire-main {{ flex:1; min-width:0; display:flex; flex-direction:column; gap:0.15rem; }}
+.mk-reviews {{ display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }}
+.mk-review {{ background:{pal['card']}; border:1px solid {pal['border']}; border-radius:14px; padding:1rem 1.1rem; transition:border-color .15s, box-shadow .15s; }}
+.mk-review:hover {{ border-color:{accent}; box-shadow:0 10px 30px -14px rgba(26,109,255,0.55); }}
+.mk-review-head {{ display:flex; gap:0.75rem; align-items:flex-start; margin-bottom:0.3rem; }}
+@media (max-width: 900px) {{ .mk-hires, .mk-reviews {{ grid-template-columns:1fr; }} }}
 footer.mk-foot {{ font-size:0.8rem; color:{pal['muted']} !important; text-align:center; margin:2.5rem 0 1rem; }}
 @media (max-width: 1100px) {{ .aw-cards, .aw-tasks, .mk-stats {{ grid-template-columns:repeat(2,1fr); }} .ad-kv {{ grid-template-columns:repeat(2,1fr); }} }}
 @media (max-width: 700px) {{ .aw-cards, .aw-tasks, .mk-stats {{ grid-template-columns:1fr; }} .aw-row, .ad-head {{ flex-wrap:wrap; }} .aw-row-side {{ align-items:flex-start; }} .ad-head-side {{ width:100%; }} }}
@@ -300,24 +314,6 @@ def budget_html(job: dict) -> str:
     return f"<span class='aw-price'>${job['budget']:,} <small>{unit}</small></span>"
 
 
-def agent_card_html(agent: dict, rank: int) -> str:
-    return (
-        "<div class='aw-card'>"
-        "<div class='aw-card-top'>"
-        f"<div class='aw-logo'>{category_logo(agent['category'], 46, agent=True)}</div>"
-        f"<span class='aw-rank'>Top {rank}</span></div>"
-        f"<div class='aw-by'>Owner: <b>{e(agent['owner'])}</b> · {e(agent['category'])}</div>"
-        f"<a class='aw-title' href='?page=worker&id={e(agent['id'])}' target='_self'>{e(agent['name'])}</a>"
-        f"{stars_html(agent)}"
-        f"<div class='aw-desc'>{e(agent['tagline'])}</div>"
-        f"{bandwidth_html(agent)}"
-        "<div class='aw-card-actions'>"
-        f"<span class='aw-price'>${agent['rate']:,} <small>/ month</small></span>"
-        f"<a class='aw-cta' href='?page=worker&id={e(agent['id'])}' target='_self'>View resume</a>"
-        "</div></div>"
-    )
-
-
 def agent_row_html(agent: dict) -> str:
     done = len(agent["missions"])
     return (
@@ -345,20 +341,23 @@ JOB_STATUS = {
 }
 
 
-def job_row_html(job: dict) -> str:
+def job_row_html(job: dict, compact: bool = False) -> str:
     label, cls = JOB_STATUS[job["status"]]
     n = len(job["applications"])
     cta = (f"<a class='aw-cta' href='?page=job&id={e(job['id'])}' target='_self'>Apply as AI agent</a>"
            if job["status"] == "open" else
            f"<a class='aw-cta aw-cta-blue' href='?page=job&id={e(job['id'])}' target='_self'>View</a>")
+    hired = store.get_agent(db, job["hired"]) if job.get("hired") else None
+    hired_html = (f"<div class='aw-by'>Hired: <a href='?page=worker&id={e(hired['id'])}' target='_self'>{e(hired['name'])}</a> "
+                  f"on {e(store.hire_date(job))}</div>" if hired else "")
     return (
-        "<div class='aw-row'>"
-        f"<div class='aw-logo'>{category_logo(job['category'], 52)}</div>"
+        f"<div class='aw-row{' aw-row-compact' if compact else ''}'>"
+        f"<div class='aw-logo'>{category_logo(job['category'], 40 if compact else 52)}</div>"
         "<div class='aw-row-main'>"
         f"<a class='aw-title' href='?page=job&id={e(job['id'])}' target='_self'>{e(job['title'])}</a>"
         f"<div class='aw-by'><b>{e(job['company'])}</b> · Posted {e(job['posted'])} · {e(job['category'])}</div>"
         f"<div class='aw-desc aw-desc-row'>{e(job['description'])}</div>"
-        f"{skills_html(job['skills'])}"
+        f"{skills_html(job['skills'])}{hired_html}"
         "</div>"
         "<div class='aw-row-side'>"
         f"<span class='aw-badge {cls}'>{label}</span>"
@@ -366,6 +365,46 @@ def job_row_html(job: dict) -> str:
         f"<span class='aw-by'>Needs {job['tokens_month']}M tokens / month · {n} applicant{'s' if n != 1 else ''}</span>"
         f"<div class='aw-card-actions'>{cta}</div>"
         "</div></div>"
+    )
+
+
+def hire_card_html(job: dict, agent: dict) -> str:
+    label, cls = JOB_STATUS[job["status"]]
+    unit = "/ month" if job["budget_type"] == "per month" else "fixed"
+    return (
+        "<div class='mk-hire'>"
+        f"<div class='aw-logo'>{category_logo(agent['category'], 44, agent=True)}</div>"
+        "<div class='mk-hire-main'>"
+        f"<div><a class='aw-title' href='?page=worker&id={e(agent['id'])}' target='_self'>{e(agent['name'])}</a>"
+        f" <span class='aw-by'>hired by</span> <b>{e(job['company'])}</b></div>"
+        f"<div class='aw-by'>as <a href='?page=job&id={e(job['id'])}' target='_self'>{e(job['title'])}</a> · "
+        f"${job['budget']:,} {unit} to owner <b>{e(agent['owner'])}</b></div>"
+        f"<div class='aw-by'>{e(store.hire_date(job))} · {job['tokens_month']}M tokens / month</div>"
+        "</div>"
+        f"<span class='aw-badge {cls}'>{label}</span>"
+        "</div>"
+    )
+
+
+def review_card_html(agent: dict, rank: int) -> str:
+    reviews = sorted(agent["missions"], key=lambda m: m["end"], reverse=True)[:2]
+    quotes = "".join(
+        f"<div class='aw-quote'><span class='aw-stars'>{'★' * m['rating']}<span class='aw-stars-off'>{'★' * (5 - m['rating'])}</span></span> "
+        f"&ldquo;{e(m['review'])}&rdquo;<div class='rs-meta'>{e(m['employer'])} · {e(m['role'])} · {e(m['end'])}</div></div>"
+        for m in reviews
+    )
+    return (
+        "<div class='mk-review'>"
+        "<div class='mk-review-head'>"
+        f"<span class='aw-rank'>#{rank}</span>"
+        f"<div class='aw-logo'>{category_logo(agent['category'], 40, agent=True)}</div>"
+        "<div style='flex:1;min-width:0;'>"
+        f"<a class='aw-title' href='?page=worker&id={e(agent['id'])}' target='_self'>{e(agent['name'])}</a>"
+        f"<div class='aw-by'>{e(agent['category'])} · owner <b>{e(agent['owner'])}</b> · ${agent['rate']:,} / month</div>"
+        f"{stars_html(agent)}</div></div>"
+        f"{quotes}"
+        f"<div style='margin-top:0.6rem;'>{bandwidth_html(agent)}</div>"
+        "</div>"
     )
 
 
@@ -402,8 +441,10 @@ def render_header():
             render_theme_toggle(label="Dark", key="aw_theme_toggle")
         st.markdown(
             "<nav class='aw-nav'>"
-            "<a href='?#open-jobs' target='_self'>Find jobs</a>"
-            "<a href='?#ai-workers' target='_self'>Find AI workers</a>"
+            "<a href='?#open-jobs' target='_self'>All jobs</a>"
+            "<a href='?#latest-hires' target='_self'>Latest hires</a>"
+            "<a href='?#top-workers' target='_self'>Top 10 AI workers</a>"
+            "<a href='?page=workers' target='_self'>All AI workers</a>"
             "<a href='?page=post' target='_self'>Post a job</a>"
             "<a href='?page=register' target='_self'>List your agent</a>"
             "<a href='?page=owner' target='_self'>Owner earnings</a>"
@@ -455,7 +496,7 @@ def page_home():
             "<div class='aw-tasks'>"
             f"<a class='aw-task' href='?page=post' target='_self'><div class='aw-task-icon'>{icon_tile(ICON_POST, '#e5133a', '#ff5a76', 32, gid='t1')}</div>"
             "<div><b>Post a job</b><span>Describe the role your business needs filled.</span></div></a>"
-            f"<a class='aw-task' href='#ai-workers' target='_self'><div class='aw-task-icon'>{icon_tile(ICON_SEARCH, '#1a6dff', '#00c6ff', 32, gid='t2')}</div>"
+            f"<a class='aw-task' href='?page=workers' target='_self'><div class='aw-task-icon'>{icon_tile(ICON_SEARCH, '#1a6dff', '#00c6ff', 32, gid='t2')}</div>"
             "<div><b>Find AI workers</b><span>Compare resumes, reviews and bandwidth.</span></div></a>"
             f"<a class='aw-task' href='?page=register' target='_self'><div class='aw-task-icon'>{icon_tile(ICON_AGENT, '#3a5bff', '#00c6ff', 32, gid='t3')}</div>"
             "<div><b>List your AI agent</b><span>Register as creator and owner, then apply to jobs.</span></div></a>"
@@ -466,53 +507,72 @@ def page_home():
         )
 
     q = (query or "").strip().lower()
+    missions = sum(len(a["missions"]) for a in agents)
+    st.markdown(
+        "<div class='mk-stats'>"
+        f"<div class='mk-stat'><b>{len(jobs)}</b><span>Job postings</span></div>"
+        f"<div class='mk-stat'><b>{len(open_jobs)}</b><span>Open now</span></div>"
+        f"<div class='mk-stat'><b>{len(agents)}</b><span>AI workers</span></div>"
+        f"<div class='mk-stat'><b>${store.earnings(db):,}</b><span>Paid to owners · {missions} missions</span></div>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
-    if not q:
-        missions = sum(len(a["missions"]) for a in agents)
-        st.markdown(
-            "<div class='mk-stats'>"
-            f"<div class='mk-stat'><b>{len(open_jobs)}</b><span>Open jobs</span></div>"
-            f"<div class='mk-stat'><b>{len(agents)}</b><span>AI workers</span></div>"
-            f"<div class='mk-stat'><b>{missions}</b><span>Missions reviewed</span></div>"
-            f"<div class='mk-stat'><b>${store.earnings(db):,}</b><span>Paid to owners</span></div>"
-            "</div>",
-            unsafe_allow_html=True,
-        )
-        top = sorted(agents, key=lambda a: (-store.rating(a)[0], -len(a["missions"]), a["name"]))[:4]
-        st.markdown("<div class='aw-h2'>Top-rated AI workers</div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='aw-cards'>{''.join(agent_card_html(a, n) for n, a in enumerate(top, 1))}</div>",
-                    unsafe_allow_html=True)
-
-    # ── Open jobs ──
-    st.markdown(f"<div id='open-jobs' class='aw-h2' style='margin-top:2.5rem;'>{'Matching jobs' if q else 'Open jobs'}</div>",
+    # ── 1. All job postings ──
+    st.markdown(f"<div id='open-jobs' class='aw-h2' style='margin-top:2rem;'>{'Matching job postings' if q else 'All job postings'}</div>",
                 unsafe_allow_html=True)
     side, main = st.columns([1, 3.4], gap="large")
     with side:
         with st.container(key="aw_filters_jobs", border=True):
             st.markdown("**Refine jobs**")
+            status = st.selectbox("Status", ["All statuses", "Hiring", "Mission in progress", "Completed"], key="mk_job_status")
             cat = st.selectbox("Category", ["All categories"] + store.CATEGORIES, key="mk_job_cat")
-            show_all = st.checkbox("Include filled and completed", key="mk_job_all")
+            companies = sorted({j["company"] for j in jobs})
+            company = st.selectbox("Business", ["All businesses"] + companies, key="mk_job_company")
             sort = st.selectbox("Sort by", ["Newest", "Budget", "Applicants"], key="mk_job_sort")
     with main:
+        status_key = {"Hiring": "open", "Mission in progress": "in_progress", "Completed": "completed"}.get(status)
         items = [j for j in jobs
-                 if (show_all or j["status"] == "open")
+                 if (status_key is None or j["status"] == status_key)
                  and (cat == "All categories" or j["category"] == cat)
+                 and (company == "All businesses" or j["company"] == company)
                  and matches(q, j["title"], j["company"], j["category"], j["description"], *j["skills"])]
         items.sort(key={"Newest": lambda j: j["posted"], "Budget": lambda j: j["budget"],
                         "Applicants": lambda j: len(j["applications"])}[sort], reverse=True)
         if items:
-            limit = st.session_state.get("mk_job_limit", 15)
-            st.markdown(f"<div class='aw-list aw-list-solo'>{''.join(job_row_html(j) for j in items[:limit])}</div>",
+            st.markdown(f"<div class='aw-by' style='margin-bottom:0.4rem;'>{len(items)} posting{'s' if len(items) != 1 else ''}</div>"
+                        f"<div class='aw-list aw-list-solo aw-jobs-scroll'>{''.join(job_row_html(j, compact=True) for j in items)}</div>",
                         unsafe_allow_html=True)
-            if len(items) > limit:
-                if st.button(f"Show more jobs ({len(items) - limit} more)", key="mk_job_more"):
-                    st.session_state["mk_job_limit"] = limit + 25
-                    st.rerun()
         else:
-            st.info("No jobs match. Try another keyword or category, or post one.")
+            st.info("No jobs match. Try another keyword or filter, or post one.")
 
-    # ── AI workers by category ──
-    st.markdown(f"<div id='ai-workers' class='aw-h2' style='margin-top:2.5rem;'>{'Matching AI workers' if q else 'AI workers by category'}</div>",
+    # ── 2. Latest hires ──
+    st.markdown("<div id='latest-hires' class='aw-h2' style='margin-top:2.5rem;'>Latest hires</div>", unsafe_allow_html=True)
+    hires = store.latest_hires(db, 10)
+    st.markdown(f"<div class='mk-hires'>{''.join(hire_card_html(j, a) for j, a in hires)}</div>" if hires else
+                "<div class='ad-box'><p>No hires yet.</p></div>", unsafe_allow_html=True)
+
+    # ── 3. Top 10 AI workers by reviews ──
+    st.markdown("<div id='top-workers' class='aw-h2' style='margin-top:2.5rem;'>Top 10 AI workers: employer reviews</div>",
+                unsafe_allow_html=True)
+    top = store.top_rated(db, 10)
+    st.markdown(f"<div class='mk-reviews'>{''.join(review_card_html(a, n) for n, a in enumerate(top, 1))}</div>",
+                unsafe_allow_html=True)
+    st.markdown("<div style='text-align:center;margin-top:1.2rem;'>"
+                f"<a class='aw-cta aw-cta-blue' href='?page=workers' target='_self'>Browse all {len(agents)} AI workers</a></div>",
+                unsafe_allow_html=True)
+    footer()
+
+
+# ────────────────────────────────
+# PAGE: all AI workers by category
+# ────────────────────────────────
+def page_workers():
+    agents = db["agents"]
+    st.markdown("<div class='ad-crumbs'><a href='?' target='_self'>theAIgency</a> › AI workers</div>", unsafe_allow_html=True)
+    st.markdown(f"<h1>All {len(agents)} AI workers</h1>", unsafe_allow_html=True)
+    q = (st.text_input("Search AI workers", placeholder="Skill, name, owner…", key="mk_w_search") or "").strip().lower()
+    st.markdown(f"<div id='ai-workers' class='aw-h2' style='margin-top:1rem;'>{'Matching AI workers' if q else 'AI workers by category'}</div>",
                 unsafe_allow_html=True)
     side, main = st.columns([1, 3.4], gap="large")
     with side:
@@ -559,7 +619,7 @@ def page_home():
 def page_worker(agent: dict):
     st.markdown(
         f"<div class='ad-crumbs'><a href='?' target='_self'>theAIgency</a> › "
-        f"<a href='?#ai-workers' target='_self'>AI workers</a> › {e(agent['category'])} › {e(agent['name'])}</div>",
+        f"<a href='?page=workers' target='_self'>AI workers</a> › {e(agent['category'])} › {e(agent['name'])}</div>",
         unsafe_allow_html=True,
     )
     active = store.active_jobs(db, agent["id"])
@@ -1062,6 +1122,8 @@ elif (page == "interview" and (job := store.get_job(db, qp.get("job", "")))
       and (application := store.get_application(job, qp.get("app", "")))
       and (agent := store.get_agent(db, application["agent_id"]))):
     page_interview(job, application, agent)
+elif page == "workers":
+    page_workers()
 elif page == "post":
     page_post()
 elif page == "register":
