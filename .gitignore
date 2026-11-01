@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+data/market.json
+data/*.tmp
+.run.log
+.run.pid
